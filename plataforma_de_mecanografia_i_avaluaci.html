@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TypeQuest - Mecanografia per a l'Aula</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome per a icones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-mono-code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Visualització del text de mecanografia */
+        .char-correct {
+            color: #10B981; /* green-500 */
+            background-color: #D1FAE5;
+        }
+        .char-incorrect {
+            color: #EF4444; /* red-500 */
+            background-color: #FEE2E2;
+            text-decoration: underline;
+        }
+        .char-current {
+            background-color: #3B82F6; /* blue-500 */
+            color: white;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        /* Teclat Virtual */
+        .key {
+            transition: all 0.1s ease;
+        }
+        .key-active {
+            transform: translateY(2px);
+            background-color: #3B82F6 !important;
+            color: white !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .key-highlight {
+            border: 2px solid #3B82F6;
+            animation: bounceKey 1s infinite alternate;
+        }
+        /* Codi de colors pels dits per aprendre la posició */
+        .finger-pinky { border-top: 3px solid #EC4899; }
+        .finger-ring { border-top: 3px solid #F59E0B; }
+        .finger-middle { border-top: 3px solid #10B981; }
+        .finger-index { border-top: 3px solid #3B82F6; }
+        .finger-thumb { border-top: 3px solid #8B5CF6; }
+        @keyframes bounceKey {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Navbar / Header -->
+    <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+        <div id="app-logo" onclick="handleSecretLogoClick()" class="flex items-center gap-3 cursor-pointer select-none" title="TypeQuest Pro">
+            <div class="bg-gradient-to-tr from-indigo-500 to-purple-500 p-2.5 rounded-xl shadow-lg">
+                <i class="fa-solid font-mono text-2xl text-white">⌨️</i>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold tracking-wider bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent">TypeQuest Pro</h1>
+                <p class="text-xs text-slate-400">Mecanografia Progressiva | Nivell Iniciació a Avançat</p>
+            </div>
+        </div>
+
+        <!-- Mode Nav (El Panell Docent queda ocult per defecte per als alumnes) -->
+        <div id="nav-container" class="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-700">
+            <button id="nav-practice" onclick="switchTab('practice')" class="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white shadow">
+                <i class="fa-solid fa-gamepad mr-2"></i>Reptes d'Alumnes
+            </button>
+            <button id="nav-teacher" onclick="switchTab('teacher')" class="hidden px-4 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-lock mr-2 text-amber-400"></i>Panell Docent
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+
+        <!-- VISTA DE PRÀCTICA D'ALUMNE -->
+        <div id="view-practice" class="space-y-6">
+            
+            <!-- Controls de la lliçó -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Selecció de Nivell/Tema -->
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Tria el Repte (55 Progressius)</label>
+                        <span id="difficulty-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Nivell 1: Iniciació</span>
+                    </div>
+                    <select id="lesson-select" onchange="loadSelectedLesson()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-h-48">
+                        <!-- Inserit dinàmicament per JS -->
+                    </select>
+                </div>
+
+                <!-- Stats en directe -->
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 grid grid-cols-3 gap-2 text-center">
+                    <div>
+                        <span class="block text-xs text-slate-400">Velocitat</span>
+                        <span id="stat-wpm" class="text-2xl font-black text-indigo-400">0 <span class="text-xs font-normal text-slate-400">PPM</span></span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-slate-400">Precisió</span>
+                        <span id="stat-accuracy" class="text-2xl font-black text-emerald-400">100%</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-slate-400">Errors</span>
+                        <span id="stat-errors" class="text-2xl font-black text-rose-400">0</span>
+                    </div>
+                </div>
+
+                <!-- Dades de l'alumne -->
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-id-card text-indigo-400"></i>
+                        <input type="text" id="student-name" oninput="checkStudentName()" placeholder="OBLIGATORI: Nom i Cognom" class="bg-slate-900 border border-amber-500/60 rounded px-2 py-1.5 text-sm text-white w-full focus:outline-none focus:border-indigo-500" />
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="resetLesson()" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-xs font-bold py-2 rounded-lg transition">
+                            <i class="fa-solid fa-rotate-right mr-1"></i> Reiniciar
+                        </button>
+                        <button onclick="downloadStudentReport()" class="w-1/2 bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-bold py-2 rounded-lg transition" title="Descarrega el teu informe per entregar-lo al Classroom/Moodle">
+                            <i class="fa-solid fa-download mr-1"></i> Entregar Notes
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Avís d'identificació obligatòria -->
+            <div id="name-warning-banner" class="bg-amber-500/10 border border-amber-500/40 text-amber-300 px-4 py-3 rounded-xl text-sm flex items-center justify-between">
+                <span><i class="fa-solid fa-triangle-exclamation mr-2"></i><strong>Identifica't primer:</strong> Escriu el teu <strong>Nom i Cognom</strong> a la casella de dalt a la dreta per desbloquejar el teclat i començar.</span>
+            </div>
+
+            <!-- Àrea de text per escriure -->
+            <div id="typing-container" class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-2xl space-y-4 opacity-50 pointer-events-none transition-opacity">
+                <div class="flex flex-wrap justify-between items-center gap-2 text-xs text-slate-400 border-b border-slate-700 pb-2">
+                    <span>Prem qualsevol tecla per començar a escriure.</span>
+                    <div class="flex items-center gap-3">
+                        <span id="lesson-goal-display" class="text-slate-400">Objectiu: 15 PPM | 90% Precisió</span>
+                        <span id="lesson-title-display" class="font-bold text-indigo-400">01. Fila Base Central</span>
+                    </div>
+                </div>
+
+                <!-- Caixa del text a copiar -->
+                <div id="text-display" class="font-mono-code text-xl md:text-2xl leading-relaxed p-6 bg-slate-950 rounded-xl border border-slate-800 break-words select-none min-h-[140px]">
+                    <!-- Generat dinàmicament per JS -->
+                </div>
+
+                <!-- Input real d'escriptura (ocult o actiu) -->
+                <input type="text" id="typing-input" class="opacity-0 absolute -z-10" autocomplete="off" />
+            </div>
+
+            <!-- Teclat Guia Virtual -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl max-w-4xl mx-auto">
+                <div class="flex flex-wrap justify-between items-center mb-3 text-xs text-slate-400 font-semibold uppercase tracking-wider gap-2">
+                    <span>Teclat Guia d'Aprenentatge</span>
+                    <div class="flex items-center gap-3 lowercase">
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-pink-500"></span> Menut</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Anular</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Mitjà</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Índex</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span> Polze</span>
+                    </div>
+                </div>
+                <div id="keyboard" class="space-y-1.5 font-mono-code text-sm">
+                    <!-- Fila 1 -->
+                    <div class="flex justify-center gap-1">
+                        <div data-key="º" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">º</div>
+                        <div data-key="1" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">1</div>
+                        <div data-key="2" class="key finger-ring bg-slate-700 p-2.5 rounded text-center w-10">2</div>
+                        <div data-key="3" class="key finger-middle bg-slate-700 p-2.5 rounded text-center w-10">3</div>
+                        <div data-key="4" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">4</div>
+                        <div data-key="5" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">5</div>
+                        <div data-key="6" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">6</div>
+                        <div data-key="7" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">7</div>
+                        <div data-key="8" class="key finger-middle bg-slate-700 p-2.5 rounded text-center w-10">8</div>
+                        <div data-key="9" class="key finger-ring bg-slate-700 p-2.5 rounded text-center w-10">9</div>
+                        <div data-key="0" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">0</div>
+                        <div data-key="\'" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">'</div>
+                        <div data-key="¡" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">¡</div>
+                        <div data-key="Backspace" class="key bg-slate-700 p-2.5 rounded text-center w-16 text-xs flex items-center justify-center">Esborrar</div>
+                    </div>
+                    <!-- Fila 2 -->
+                    <div class="flex justify-center gap-1">
+                        <div data-key="Tab" class="key bg-slate-700 p-2.5 rounded text-center w-14 text-xs flex items-center justify-center">Tab</div>
+                        <div data-key="q" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">Q</div>
+                        <div data-key="w" class="key finger-ring bg-slate-700 p-2.5 rounded text-center w-10">W</div>
+                        <div data-key="e" class="key finger-middle bg-slate-700 p-2.5 rounded text-center w-10">E</div>
+                        <div data-key="r" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">R</div>
+                        <div data-key="t" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">T</div>
+                        <div data-key="y" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">Y</div>
+                        <div data-key="u" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">U</div>
+                        <div data-key="i" class="key finger-middle bg-slate-700 p-2.5 rounded text-center w-10">I</div>
+                        <div data-key="o" class="key finger-ring bg-slate-700 p-2.5 rounded text-center w-10">O</div>
+                        <div data-key="p" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">P</div>
+                        <div data-key="`" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">`</div>
+                        <div data-key="+" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">+</div>
+                    </div>
+                    <!-- Fila 3 -->
+                    <div class="flex justify-center gap-1">
+                        <div data-key="CapsLock" class="key bg-slate-700 p-2.5 rounded text-center w-16 text-xs flex items-center justify-center">Bloq Maj</div>
+                        <div data-key="a" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10 border-b-2 border-indigo-400">A</div>
+                        <div data-key="s" class="key finger-ring bg-slate-700 p-2.5 rounded text-center w-10">S</div>
+                        <div data-key="d" class="key finger-middle bg-slate-700 p-2.5 rounded text-center w-10">D</div>
+                        <div data-key="f" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10 border-b-2 border-indigo-400">F</div>
+                        <div data-key="g" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">G</div>
+                        <div data-key="h" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">H</div>
+                        <div data-key="j" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10 border-b-2 border-indigo-400">J</div>
+                        <div data-key="k" class="key finger-middle bg-slate-700 p-2.5 rounded text-center w-10">K</div>
+                        <div data-key="l" class="key finger-ring bg-slate-700 p-2.5 rounded text-center w-10">L</div>
+                        <div data-key="ñ" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10 border-b-2 border-indigo-400">Ñ</div>
+                        <div data-key="´" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">´</div>
+                        <div data-key="ç" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">Ç</div>
+                    </div>
+                    <!-- Fila 4 -->
+                    <div class="flex justify-center gap-1">
+                        <div data-key="Shift" class="key bg-slate-700 p-2.5 rounded text-center w-20 text-xs flex items-center justify-center">Shift</div>
+                        <div data-key="z" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">Z</div>
+                        <div data-key="x" class="key finger-ring bg-slate-700 p-2.5 rounded text-center w-10">X</div>
+                        <div data-key="c" class="key finger-middle bg-slate-700 p-2.5 rounded text-center w-10">C</div>
+                        <div data-key="v" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">V</div>
+                        <div data-key="b" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">B</div>
+                        <div data-key="n" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">N</div>
+                        <div data-key="m" class="key finger-index bg-slate-700 p-2.5 rounded text-center w-10">M</div>
+                        <div data-key="," class="key finger-middle bg-slate-700 p-2.5 rounded text-center w-10">,</div>
+                        <div data-key="." class="key finger-ring bg-slate-700 p-2.5 rounded text-center w-10">.</div>
+                        <div data-key="-" class="key finger-pinky bg-slate-700 p-2.5 rounded text-center w-10">-</div>
+                        <div data-key="Shift" class="key bg-slate-700 p-2.5 rounded text-center w-20 text-xs flex items-center justify-center">Shift</div>
+                    </div>
+                    <!-- Fila Espai -->
+                    <div class="flex justify-center gap-1">
+                        <div data-key=" " class="key finger-thumb bg-slate-700 p-2 rounded text-center w-64 text-xs flex items-center justify-center">Espai</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- VISTA DE PANELL DE PROFESSOR / AVALUACIÓ -->
+        <div id="view-teacher" class="hidden space-y-6">
+            
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-indigo-400">Panell de Control i Avaluació del Professorat</h2>
+                        <p class="text-xs text-slate-300">Resultats d'avaluació acumulats de la sessió.</p>
+                    </div>
+                    <button onclick="lockTeacherPanel()" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg text-slate-300 transition flex items-center gap-1">
+                        <i class="fa-solid fa-lock"></i> Bloquejar Panell
+                    </button>
+                </div>
+
+                <!-- Rubrica d'avaluació ràpida -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                        <div class="text-xs font-bold text-emerald-400 uppercase">Assolit Excel·lent</div>
+                        <div class="text-lg font-bold mt-1">> 35 PPM</div>
+                        <div class="text-xs text-slate-400">Precisió ≥ 95%. Domini del teclat sense mirar.</div>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                        <div class="text-xs font-bold text-amber-400 uppercase">Satisfactori (Nivell Mig)</div>
+                        <div class="text-lg font-bold mt-1">20 - 35 PPM</div>
+                        <div class="text-xs text-slate-400">Precisió ≥ 90%. Ús fluid de la majoria de tecles.</div>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                        <div class="text-xs font-bold text-rose-400 uppercase">En Procés</div>
+                        <div class="text-lg font-bold mt-1">< 20 PPM</div>
+                        <div class="text-xs text-slate-400">Precisió < 90%. Cal reforçar la fila base i la postura.</div>
+                    </div>
+                </div>
+
+                <!-- Taula de Registre d'Alumnes -->
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                    <h3 class="font-bold text-slate-200">Resultats d'Avaluació de l'Aula</h3>
+                    <div class="flex items-center gap-2">
+                        <span id="teacher-toast" class="text-xs text-amber-400 hidden">No hi ha dades per exportar.</span>
+                        <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2 rounded-lg transition flex items-center gap-2">
+                            <i class="fa-solid fa-file-csv"></i> Descarregar Notes (CSV)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300">
+                        <thead class="bg-slate-900 text-slate-400 text-xs uppercase border-b border-slate-700">
+                            <tr>
+                                <th class="p-3">Data/Hora</th>
+                                <th class="p-3">Nom de l'Alumne</th>
+                                <th class="p-3">Repte / Lliçó</th>
+                                <th class="p-3">Velocitat (PPM)</th>
+                                <th class="p-3">Precisió</th>
+                                <th class="p-3">Errors</th>
+                                <th class="p-3">Avaluació Qualitativa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacher-table-body" class="divide-y divide-slate-700">
+                            <!-- Inserit dinàmicament -->
+                            <tr class="text-slate-500 text-center py-4">
+                                <td colspan="7" class="p-4">Encara no hi ha cap registre d'avaluació en aquesta sessió.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal de Contrasenya de Professor -->
+    <div id="password-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl space-y-4">
+            <div class="text-center">
+                <div class="w-12 h-12 bg-indigo-500/10 border border-indigo-500/30 rounded-full flex items-center justify-center mx-auto mb-2 text-indigo-400 text-xl">
+                    🔒
+                </div>
+                <h3 class="text-lg font-bold text-white">Accés Restringit al Professorat</h3>
+                <p class="text-xs text-slate-400">Introdueix el teu PIN docent per accedir a les notes i informes.</p>
+            </div>
+            
+            <div>
+                <input type="password" id="teacher-pin-input" placeholder="PIN Docent (Per defecte: 1234)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-center text-white tracking-widest text-lg focus:outline-none focus:border-indigo-500" />
+                <p id="pin-error-msg" class="text-rose-400 text-xs mt-1 text-center hidden">PIN incorrecte! Tornar a intentar.</p>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="closePasswordModal()" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs py-2.5 rounded-lg transition">
+                    Cancel·lar
+                </button>
+                <button onclick="verifyTeacherPin()" class="w-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2.5 rounded-lg transition">
+                    Entrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Finalització de Repte -->
+    <div id="result-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 p-8 rounded-2xl max-w-md w-full shadow-2xl text-center space-y-6">
+            <div class="text-5xl">🏆</div>
+            <h2 class="text-2xl font-black text-white">Repte Finalitzat!</h2>
+            <div class="bg-slate-900 p-4 rounded-xl space-y-3">
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">Alumne:</span>
+                    <span id="modal-student-name" class="font-bold text-white">-</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">Velocitat:</span>
+                    <span id="modal-wpm" class="font-bold text-indigo-400">0 PPM</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">Precisió:</span>
+                    <span id="modal-accuracy" class="font-bold text-emerald-400">0%</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">Nota Suggerida:</span>
+                    <span id="modal-grade" class="font-bold text-amber-400">-</span>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closeModal(false)" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition text-sm">
+                    Repetir Repte
+                </button>
+                <button onclick="closeModal(true)" class="w-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg transition text-sm">
+                    Següent Repte ➡️
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Principal -->
+    <script>
+        // PIN del Professorat (Pots canviar-lo aquí)
+        const TEACHER_PIN = "1234";
+        let isTeacherAuthenticated = false;
+        let logoClickCount = 0;
+        let logoClickTimer = null;
+
+        // BANC COMPLET DE 55 REPTES PROGRESSIUS (DE NIVELL 1 A NIVELL 5)
+        const lessons = [
+            // NIVELL 1: INICIACIÓ - FILA BASE I MEMÒRIA MUSCULAR (Reptes 1 - 11)
+            { level: "Nivell 1: Iniciació", goal: "15 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "01. Àncores Índex (F J)", text: "fff jjj fjf jfj ffjj jjff fff jjj fjfj jfjf ffjj fjf jfj fff jjj" },
+            { level: "Nivell 1: Iniciació", goal: "15 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "02. Dits Mitjans (D K)", text: "ddd kkk dkd kdk fjdk kjdf ddfj kkfj dkd kdk fjdk kjdf ddfj kkfj" },
+            { level: "Nivell 1: Iniciació", goal: "16 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "03. Dits Anulars (S L)", text: "sss lll sls lsl sldk fjls asdf jklñ sldk fjls sls lsl sldk fjls" },
+            { level: "Nivell 1: Iniciació", goal: "16 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "04. Dits Menuts (A Ñ)", text: "aaa ñññ aññ aña asdf jklñ aña ñañ asdf jklñ aññ aña asdf jklñ" },
+            { level: "Nivell 1: Iniciació", goal: "18 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "05. Extensió Central (G H)", text: "fgf jhj ghg hgh asdfg jklñh fghj jhgf gfhj asdfg hjklñ fghj jhgf" },
+            { level: "Nivell 1: Iniciació", goal: "18 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "06. Primeres Paraules Fila Base", text: "la sala fada falta salsa llana falda dada casa llauna falsa kala" },
+            { level: "Nivell 1: Iniciació", goal: "18 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "07. Fila Superior Índex (R T Y U)", text: "frf ftf jyj juj frft jyju rtyu urty frju ftrj rtyu frft jyju" },
+            { level: "Nivell 1: Iniciació", goal: "20 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "08. Fila Superior Mitjans i Anulars (E W I O)", text: "ded sws kik lol deki swlo ewio oiew desw kilo deki swlo ewio" },
+            { level: "Nivell 1: Iniciació", goal: "20 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "09. Fila Superior Menuts (Q P)", text: "qaq pñp qaop plqa qpñola aqaq plpl qaop plqa qpñola aqaq plpl" },
+            { level: "Nivell 1: Iniciació", goal: "20 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "10. Fila Inferior Índex i Mitjans (V B N M C X)", text: "fvf fbf jnj jmj dcd sxs vbnm cxz fvfb jnjm dcsx vbnm cxz fvfb" },
+            { level: "Nivell 1: Iniciació", goal: "22 PPM | 90%", group: "🌱 Nivell 1: Fila Base & Dits (1-11)", title: "11. Fila Inferior Completa (Z , . - Ç)", text: "zaz ,k, .l. -ñ- çñç az,k .l-ñ çz,. -ñç az,k .l-ñ çz,. -ñç" },
+
+            // NIVELL 2: BÀSIC - FLUÏDESA EN MINÚSCULES I FRASES CURTES (Reptes 12 - 22)
+            { level: "Nivell 2: Bàsic", goal: "22 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "12. Combinació de Vocals i Consonants", text: "el gat negre dorm sobre la cadira blava mentre plou al carrer" },
+            { level: "Nivell 2: Bàsic", goal: "22 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "13. Ritme i Espaiat Constant", text: "escriure sense mirar el teclat requereix practica diaria i calma" },
+            { level: "Nivell 2: Bàsic", goal: "24 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "14. Paraules amb Dobles Consonants", text: "passar llapis carretera terra correu missatge pantalla teclat" },
+            { level: "Nivell 2: Bàsic", goal: "24 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "15. Música i Ritme Urbà", text: "escoltar una bona base de rap o trap mentre programes ajuda a fluir" },
+            { level: "Nivell 2: Bàsic", goal: "25 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "16. Esport i Superació Personal", text: "entrenar cada dia quinze minuts millora la velocitat sense adonar-se" },
+            { level: "Nivell 2: Bàsic", goal: "25 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "17. Viatges i Descobriments", text: "viatjar en tren per europa permet coneixer ciutats antigues i modernes" },
+            { level: "Nivell 2: Bàsic", goal: "26 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "18. Cinema i Sèries de Ciència-Ficció", text: "les series sobre viatges en el temps tenen guions plens de girs" },
+            { level: "Nivell 2: Bàsic", goal: "26 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "19. El Món dels Sneakers i Moda", text: "colleccionar sabatilles esportives edicio limitada es una tendencia global" },
+            { level: "Nivell 2: Bàsic", goal: "27 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "20. Gastronomia i Cuina Ràpida", text: "preparar una pizza casolana amb massa fina i formatge fos es genial" },
+            { level: "Nivell 2: Bàsic", goal: "27 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "21. Ús del Punt i la Coma", text: "primer col·loca els dits, despres respira fons, i comenca a escriure." },
+            { level: "Nivell 2: Bàsic", goal: "28 PPM | 92%", group: "📘 Nivell 2: Fluïdesa & Paraules (12-22)", title: "22. Reptes de Precisió Sense Errors", text: "la velocitat arriba sola quan els dits saben on es cada lletra exacta." },
+
+            // NIVELL 3: MIG - MAJÚSCULES, ACCENTS I CULTURA DIGITAL (Reptes 23 - 33)
+            { level: "Nivell 3: Mig", goal: "28 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "23. Introducció a les Majúscules (Shift)", text: "Barcelona, Girona, Lleida i Tarragona són les quatre capitals catalanes." },
+            { level: "Nivell 3: Mig", goal: "28 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "24. El Feed de TikTok i els Algoritmes", text: "El scroll infinit de TikTok mostra vídeos curts segons els teus likes." },
+            { level: "Nivell 3: Mig", goal: "30 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "25. Creació de Contingut i Reels", text: "Gravar, editar amb bon ritme i afegir àudio en tendència és clau!" },
+            { level: "Nivell 3: Mig", goal: "30 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "26. Streaming en Directe a Twitch", text: "L'streamer va saludar tots els subscriptors del xat durant la marató." },
+            { level: "Nivell 3: Mig", goal: "30 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "27. Comunitats a Discord i Moderació", text: "Els moderadors del servidor de Discord mantenen el canal lliure d'spam." },
+            { level: "Nivell 3: Mig", goal: "31 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "28. Memes i Cultura Viral d'Internet", text: "Un bon meme pot fer la volta al món en qüestió de pocs minuts." },
+            { level: "Nivell 3: Mig", goal: "31 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "29. Gestió de Notificacions i Focus", text: "Activar el mode No Molestar al mòbil ajuda a concentrar-se en l'estudi." },
+            { level: "Nivell 3: Mig", goal: "32 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "30. Signes d'Interrogació i Admiració", text: "Quants PPM pots assolir avui? Demostra-ho sense mirar el teclat!" },
+            { level: "Nivell 3: Mig", goal: "32 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "31. Apòstrofs i Ela Geminada (L·L)", text: "L'intel·ligència artificial i l'aprenentatge automàtic canvien l'escola." },
+            { level: "Nivell 3: Mig", goal: "33 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "32. Podcasting i Àudio Digital", text: "Escoltar pòdcasts sobre tecnologia mentre vas en autobús és molt útil." },
+            { level: "Nivell 3: Mig", goal: "34 PPM | 93%", group: "🌐 Nivell 3: Majúscules & Xarxes (23-33)", title: "33. Petjada Digital i Privacitat", text: "Tot el que puges a les xarxes socials deixa un rastre permanent a la xarxa." },
+
+            // NIVELL 4: MIG-ALT - NÚMEROS, GAMING I CIBERSEGURETAT (Reptes 34 - 44)
+            { level: "Nivell 4: Mig-Alt", goal: "34 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "34. Fila Numèrica: Dates i Xifres", text: "L'any 2026 hi ha més de 5.000 milions d'usuaris connectats a Internet." },
+            { level: "Nivell 4: Mig-Alt", goal: "35 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "35. Targetes Gràfiques i FPS", text: "Per jugar a 144 FPS amb resolució 4K cal una targeta gràfica potent." },
+            { level: "Nivell 4: Mig-Alt", goal: "35 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "36. Teclats Mecànics i Switches", text: "Els switches vermells són populars al gaming per la seva resposta ràpida." },
+            { level: "Nivell 4: Mig-Alt", goal: "36 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "37. Tornejos d'E-Sports Mundials", text: "L'equip campió va guanyar 2.500.000 euros davant de 20.000 espectadors." },
+            { level: "Nivell 4: Mig-Alt", goal: "36 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "38. Sensibilitat DPI i Monitors 240Hz", text: "Ajustar el ratolí a 800 DPI i jugar a 240 Hz millora molt la punteria." },
+            { level: "Nivell 4: Mig-Alt", goal: "37 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "39. Contrasenyes Robustes i Seguretat", text: "Una clau segura té 14 caràcters: majúscules, números 123 i símbols!" },
+            { level: "Nivell 4: Mig-Alt", goal: "37 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "40. Detecció d'Atacs de Phishing", text: "Desconfia dels correus urgents que demanen el teu PIN bancari o clau." },
+            { level: "Nivell 4: Mig-Alt", goal: "38 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "41. Autenticació en Dos Passos (2FA)", text: "Activar el codi 2FA de 6 dígits protegeix el teu compte contra hackers." },
+            { level: "Nivell 4: Mig-Alt", goal: "38 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "42. Xifratge d'Extrem a Extrem", text: "Els missatges xifrats garanteixen que només l'emissor i el receptor els llegeixin." },
+            { level: "Nivell 4: Mig-Alt", goal: "39 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "43. Realitat Virtual i Sensors 3D", text: "Les ulleres VR rastregen 360 graus de moviment en temps real a 90 Hz." },
+            { level: "Nivell 4: Mig-Alt", goal: "40 PPM | 94%", group: "🎮 Nivell 4: Números, Gaming & Tech (34-44)", title: "44. Intel·ligència Artificial Generativa", text: "Els models d'IA processen milions de paràmetres per generar text i codi." },
+
+            // NIVELL 5: AVANÇAT - PROGRAMACIÓ, SÍMBOLS I MÀXIMA VELOCITAT (Reptes 45 - 55)
+            { level: "Nivell 5: Avançat", goal: "40 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "45. Variables i Tipus en Python", text: "usuari = 'Alex_2026'; nivell = 45; punts = 9850.5; actiu = True" },
+            { level: "Nivell 5: Avançat", goal: "40 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "46. Estructures HTML5 i Atributs", text: "<div class='box' id='main'><h1>Hola Món!</h1><p>Text 100% real.</p></div>" },
+            { level: "Nivell 5: Avançat", goal: "42 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "47. Propietats CSS3 i Colors Hex", text: ".btn-primary { background: #4f46e5; border-radius: 12px; padding: 10px 20px; }" },
+            { level: "Nivell 5: Avançat", goal: "42 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "48. Arrays i Mètodes en JavaScript", text: "const notes = [8.5, 9.0, 10]; const mitjana = notes.reduce((a, b) => a + b) / 3;" },
+            { level: "Nivell 5: Avançat", goal: "43 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "49. Consultes de Bases de Dades SQL", text: "SELECT nom, ppm FROM alumnes WHERE ppm >= 35 AND precisio > 92 ORDER BY ppm DESC;" },
+            { level: "Nivell 5: Avançat", goal: "44 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "50. Comandes de Terminal Linux", text: "sudo apt update && mkdir -p ~/projectes/web && chmod 755 script.sh" },
+            { level: "Nivell 5: Avançat", goal: "45 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "51. Objectes JSON i APIs REST", text: "{\"status\": 200, \"data\": {\"user\": \"admin@aula.cat\", \"roles\": [\"editor\", \"pro\"]}}" },
+            { level: "Nivell 5: Avançat", goal: "45 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "52. Expressions Regulars (Regex)", text: "const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$/;" },
+            { level: "Nivell 5: Avançat", goal: "46 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "53. Bucles i Condicionals Complexos", text: "for (let i = 1; i <= 55; i++) { if (i % 5 === 0) console.log(`Fita #${i}`); }" },
+            { level: "Nivell 5: Avançat", goal: "48 PPM | 95%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "54. Text Periodístic d'Alta Densitat", text: "La transformació digital exigeix dominar l'escriptura ràpida (45+ PPM) amb precisió." },
+            { level: "Nivell 5: Avançat", goal: "50 PPM | 96%", group: "🐍 Nivell 5: Codi & Símbols Pro (45-55)", title: "55. Examen Final: Mestre del Teclat", text: "Enhorabona! Has completat els 55 reptes: lletres, números (0-9) i símbols [#@&%$]." }
+        ];
+
+        let currentLessonIndex = 0;
+        let targetText = "";
+        let currentIndex = 0;
+        let errors = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let isFinished = false;
+        let evaluationRecords = JSON.parse(localStorage.getItem('typequest_records') || '[]');
+
+        // Elements DOM
+        const textDisplay = document.getElementById('text-display');
+        const typingInput = document.getElementById('typing-input');
+        const statWpm = document.getElementById('stat-wpm');
+        const statAccuracy = document.getElementById('stat-accuracy');
+        const statErrors = document.getElementById('stat-errors');
+        const studentNameInput = document.getElementById('student-name');
+        const lessonSelect = document.getElementById('lesson-select');
+
+        // Inicialització
+        window.onload = () => {
+            checkTeacherUrlParam();
+            populateLessonSelect();
+            loadSelectedLesson();
+            checkStudentName();
+            document.addEventListener('keydown', handleGlobalKeydown);
+            updateTeacherTable();
+        };
+
+        // Obliga l'alumne a posar el seu Nom i Cognom abans de començar
+        function checkStudentName() {
+            const nameVal = studentNameInput.value.trim();
+            const warningBanner = document.getElementById('name-warning-banner');
+            const typingContainer = document.getElementById('typing-container');
+
+            if (nameVal.length >= 3) {
+                warningBanner.classList.add('hidden');
+                typingContainer.classList.remove('opacity-50', 'pointer-events-none');
+                studentNameInput.classList.remove('border-amber-500/60');
+                studentNameInput.classList.add('border-emerald-500/60');
+            } else {
+                warningBanner.classList.remove('hidden');
+                typingContainer.classList.add('opacity-50', 'pointer-events-none');
+                studentNameInput.classList.add('border-amber-500/60');
+                studentNameInput.classList.remove('border-emerald-500/60');
+            }
+        }
+
+        // Permet a l'alumne descarregar el seu propi fitxer de resultats per pujar-lo a Classroom/Moodle
+        function downloadStudentReport() {
+            const nameVal = studentNameInput.value.trim();
+            if (nameVal.length < 3) {
+                studentNameInput.focus();
+                return;
+            }
+            const studentRecords = evaluationRecords.filter(r => r.student.toLowerCase() === nameVal.toLowerCase());
+            const recordsToExport = studentRecords.length > 0 ? studentRecords : evaluationRecords;
+
+            if (recordsToExport.length === 0) {
+                const banner = document.getElementById('name-warning-banner');
+                banner.innerHTML = `<span><i class="fa-solid fa-circle-info mr-2"></i>Encara no has completat cap repte! Acaba almenys un repte abans de descarregar l'entrega.</span>`;
+                banner.classList.remove('hidden');
+                setTimeout(() => checkStudentName(), 3500);
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,Hora,Alumne,Repte,PPM,Precisio,Errors,Nota\n";
+            recordsToExport.forEach(r => {
+                csvContent += `"${r.date}","${r.student}","${r.lesson}",${r.wpm},"${r.accuracy}",${r.errors},"${r.grade}"\n`;
+            });
+
+            const safeName = nameVal.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `mecanografia_${safeName}_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Comprova si s'accedeix amb ?docent=1 a l'enllaç
+        function checkTeacherUrlParam() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('docent') === '1') {
+                revealTeacherButton();
+            }
+        }
+
+        // Revela el botó ocult del docent (mitjançant URL, drecera o 5 clics al logo)
+        function revealTeacherButton() {
+            document.getElementById('nav-teacher').classList.remove('hidden');
+        }
+
+        function handleSecretLogoClick() {
+            logoClickCount++;
+            clearTimeout(logoClickTimer);
+            logoClickTimer = setTimeout(() => { logoClickCount = 0; }, 2000);
+            if (logoClickCount >= 5) {
+                logoClickCount = 0;
+                revealTeacherButton();
+                switchTab('teacher');
+            }
+        }
+
+        function populateLessonSelect() {
+            lessonSelect.innerHTML = '';
+            let currentOptGroup = null;
+            let currentGroupTitle = "";
+
+            lessons.forEach((lesson, index) => {
+                if (lesson.group !== currentGroupTitle) {
+                    currentGroupTitle = lesson.group;
+                    currentOptGroup = document.createElement('optgroup');
+                    currentOptGroup.label = currentGroupTitle;
+                    lessonSelect.appendChild(currentOptGroup);
+                }
+                const opt = document.createElement('option');
+                opt.value = index;
+                opt.innerText = lesson.title;
+                currentOptGroup.appendChild(opt);
+            });
+        }
+
+        function switchTab(tab) {
+            if (tab === 'teacher' && !isTeacherAuthenticated) {
+                document.getElementById('password-modal').classList.remove('hidden');
+                document.getElementById('teacher-pin-input').focus();
+                return;
+            }
+
+            document.getElementById('view-practice').classList.toggle('hidden', tab !== 'practice');
+            document.getElementById('view-teacher').classList.toggle('hidden', tab !== 'teacher');
+            
+            document.getElementById('nav-practice').className = tab === 'practice' 
+                ? 'px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white shadow'
+                : 'px-4 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition';
+            
+            document.getElementById('nav-teacher').className = tab === 'teacher' 
+                ? 'px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white shadow'
+                : 'px-4 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition';
+        }
+
+        function verifyTeacherPin() {
+            const inputPin = document.getElementById('teacher-pin-input').value;
+            if (inputPin === TEACHER_PIN) {
+                isTeacherAuthenticated = true;
+                document.getElementById('password-modal').classList.add('hidden');
+                document.getElementById('pin-error-msg').classList.add('hidden');
+                document.getElementById('teacher-pin-input').value = '';
+                switchTab('teacher');
+            } else {
+                document.getElementById('pin-error-msg').classList.remove('hidden');
+            }
+        }
+
+        function closePasswordModal() {
+            document.getElementById('password-modal').classList.add('hidden');
+            document.getElementById('teacher-pin-input').value = '';
+            document.getElementById('pin-error-msg').classList.add('hidden');
+        }
+
+        function lockTeacherPanel() {
+            isTeacherAuthenticated = false;
+            document.getElementById('nav-teacher').classList.add('hidden');
+            switchTab('practice');
+        }
+
+        function loadSelectedLesson() {
+            currentLessonIndex = parseInt(document.getElementById('lesson-select').value);
+            const lesson = lessons[currentLessonIndex];
+            targetText = lesson.text;
+            document.getElementById('lesson-title-display').innerText = lesson.title;
+            document.getElementById('lesson-goal-display').innerText = `Objectiu: ${lesson.goal}`;
+            
+            const badge = document.getElementById('difficulty-badge');
+            badge.innerText = lesson.level;
+            
+            // Color dinàmic segons dificultat
+            if (currentLessonIndex < 11) {
+                badge.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            } else if (currentLessonIndex < 22) {
+                badge.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30";
+            } else if (currentLessonIndex < 33) {
+                badge.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30";
+            } else if (currentLessonIndex < 44) {
+                badge.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30";
+            } else {
+                badge.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30";
+            }
+
+            resetLesson();
+        }
+
+        function resetLesson() {
+            currentIndex = 0;
+            errors = 0;
+            startTime = null;
+            isFinished = false;
+            clearInterval(timerInterval);
+            
+            statWpm.innerHTML = `0 <span class="text-xs font-normal text-slate-400">PPM</span>`;
+            statAccuracy.innerText = "100%";
+            statErrors.innerText = "0";
+            
+            renderText();
+            highlightVirtualKey(targetText[0]);
+        }
+
+        function renderText() {
+            textDisplay.innerHTML = '';
+            for (let i = 0; i < targetText.length; i++) {
+                const charSpan = document.createElement('span');
+                charSpan.innerText = targetText[i];
+                
+                if (i < currentIndex) {
+                    charSpan.classList.add('char-correct');
+                } else if (i === currentIndex) {
+                    charSpan.classList.add('char-current');
+                }
+                
+                textDisplay.appendChild(charSpan);
+            }
+        }
+
+        function handleGlobalKeydown(e) {
+            // Drecera secreta de teclat per al docent: Ctrl + Shift + L
+            if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+                e.preventDefault();
+                revealTeacherButton();
+                switchTab('teacher');
+                return;
+            }
+
+            // Permet confirmar el PIN prement Enter
+            if (!document.getElementById('password-modal').classList.contains('hidden')) {
+                if (e.key === 'Enter') verifyTeacherPin();
+                return;
+            }
+
+            if (document.activeElement === studentNameInput || isFinished) return;
+
+            // Bloqueja l'escriptura si l'alumne no s'ha identificat
+            if (studentNameInput.value.trim().length < 3) return;
+
+            if (e.key === ' ') {
+                e.preventDefault();
+            }
+
+            if (!startTime && e.key.length === 1) {
+                startTime = new Date();
+                timerInterval = setInterval(updateStats, 500);
+            }
+
+            const expectedChar = targetText[currentIndex];
+            animateKey(e.key);
+
+            if (e.key.length === 1 || e.key === 'Enter') {
+                const typedChar = e.key === 'Enter' ? '\n' : e.key;
+
+                if (typedChar === expectedChar) {
+                    currentIndex++;
+                } else {
+                    errors++;
+                    statErrors.innerText = errors;
+                    textDisplay.classList.add('border-rose-500');
+                    setTimeout(() => textDisplay.classList.remove('border-rose-500'), 200);
+                }
+
+                renderText();
+                updateStats();
+
+                if (currentIndex < targetText.length) {
+                    highlightVirtualKey(targetText[currentIndex]);
+                } else {
+                    finishLesson();
+                }
+            }
+        }
+
+        function updateStats() {
+            if (!startTime) return;
+
+            const now = new Date();
+            const timeElapsedMinutes = (now - startTime) / 60000;
+            
+            const wordsTyped = (currentIndex / 5);
+            const wpm = Math.round(wordsTyped / (timeElapsedMinutes || 0.001));
+
+            const totalTyped = currentIndex + errors;
+            const accuracy = totalTyped > 0 ? Math.round((currentIndex / totalTyped) * 100) : 100;
+
+            statWpm.innerHTML = `${wpm} <span class="text-xs font-normal text-slate-400">PPM</span>`;
+            statAccuracy.innerText = `${accuracy}%`;
+        }
+
+        function finishLesson() {
+            isFinished = true;
+            clearInterval(timerInterval);
+
+            const now = new Date();
+            const timeElapsedMinutes = (now - startTime) / 60000;
+            const wpm = Math.round((currentIndex / 5) / timeElapsedMinutes);
+            const totalTyped = currentIndex + errors;
+            const accuracy = Math.round((currentIndex / totalTyped) * 100);
+            const studentName = studentNameInput.value.trim() || "Alumne Anònim";
+
+            let grade = "Insuficient";
+            if (wpm >= 35 && accuracy >= 95) grade = "Excel·lent (10)";
+            else if (wpm >= 25 && accuracy >= 90) grade = "Notable (8)";
+            else if (wpm >= 20 && accuracy >= 85) grade = "Suficient (6)";
+            else grade = "En Procés (4)";
+
+            const record = {
+                date: new Date().toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' }),
+                student: studentName,
+                lesson: lessons[currentLessonIndex].title,
+                wpm: wpm,
+                accuracy: accuracy + '%',
+                errors: errors,
+                grade: grade
+            };
+
+            evaluationRecords.unshift(record);
+            localStorage.setItem('typequest_records', JSON.stringify(evaluationRecords));
+            updateTeacherTable();
+
+            document.getElementById('modal-student-name').innerText = studentName;
+            document.getElementById('modal-wpm').innerText = `${wpm} PPM`;
+            document.getElementById('modal-accuracy').innerText = `${accuracy}%`;
+            document.getElementById('modal-grade').innerText = grade;
+            document.getElementById('result-modal').classList.remove('hidden');
+        }
+
+        function closeModal(advanceNext = false) {
+            document.getElementById('result-modal').classList.add('hidden');
+            if (advanceNext && currentLessonIndex < lessons.length - 1) {
+                lessonSelect.value = currentLessonIndex + 1;
+                loadSelectedLesson();
+            } else {
+                resetLesson();
+            }
+        }
+
+        function updateTeacherTable() {
+            const tbody = document.getElementById('teacher-table-body');
+            tbody.innerHTML = '';
+
+            if (evaluationRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Encara no hi ha cap registre.</td></tr>`;
+                return;
+            }
+
+            evaluationRecords.forEach(rec => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/50 transition";
+                tr.innerHTML = `
+                    <td class="p-3 text-slate-400 text-xs">${rec.date}</td>
+                    <td class="p-3 font-semibold text-white">${rec.student}</td>
+                    <td class="p-3 text-slate-300 text-xs">${rec.lesson}</td>
+                    <td class="p-3 font-bold text-indigo-400">${rec.wpm} PPM</td>
+                    <td class="p-3 font-bold text-emerald-400">${rec.accuracy}</td>
+                    <td class="p-3 text-rose-400">${rec.errors}</td>
+                    <td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold bg-slate-900 border border-slate-700">${rec.grade}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function exportToCSV() {
+            if (evaluationRecords.length === 0) {
+                const toast = document.getElementById('teacher-toast');
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 3000);
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,Hora,Alumne,Llicó,PPM,Precisió,Errors,Nota\n";
+            evaluationRecords.forEach(r => {
+                csvContent += `"${r.date}","${r.student}","${r.lesson}",${r.wpm},"${r.accuracy}",${r.errors},"${r.grade}"\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `avaluacio_mecanografia_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function highlightVirtualKey(char) {
+            document.querySelectorAll('.key').forEach(k => k.classList.remove('key-highlight'));
+            if (!char) return;
+
+            let keyToFind = char.toLowerCase();
+            if (char === ' ') keyToFind = ' ';
+            
+            const keyEl = document.querySelector(`.key[data-key="${keyToFind}"]`);
+            if (keyEl) {
+                keyEl.classList.add('key-highlight');
+            }
+        }
+
+        function animateKey(key) {
+            let keyToFind = key.toLowerCase();
+            if (key === ' ') keyToFind = ' ';
+            const keyEl = document.querySelector(`.key[data-key="${keyToFind}"]`);
+            if (keyEl) {
+                keyEl.classList.add('key-active');
+                setTimeout(() => keyEl.classList.remove('key-active'), 120);
+            }
+        }
+    </script>
+</body>
+</html>
